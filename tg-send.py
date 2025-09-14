@@ -31,6 +31,7 @@ STATES_DEFAULT = {
     "downloaded": "⬇️ DOWNLOADED",
 }
 
+VERBOSE = False  # Global para errores fuera de funciones con verbose
 #Argument parser setup
 parser = argparse.ArgumentParser(description="Sends messages to Telegram through a bot.")
 
@@ -105,6 +106,11 @@ def load_config(config_file):
     if "TOKEN" not in config or "CHAT_ID" not in config or "LOG_FILE" not in config:
         print(f"Error: el archivo de configuración '{config_file}' debe definir TOKEN, CHAT_ID y LOG_FILE.")
         sys.exit(1)
+
+    # If config TOKEN or CHAT_ID are empty, warn and exit
+    if not config["TOKEN"] or not config["CHAT_ID"]:
+        print(f"Error: el archivo de configuración '{config_file}' debe definir TOKEN y CHAT_ID no vacíos.")
+        sys.exit(1)
         
     return config
 
@@ -177,6 +183,9 @@ def get_local_ip(logfile, verbose=False):
         return ", ".join(sorted(ips)) if ips else "No disponible"
 
     except Exception as e:
+
+        if verbose:
+            print(f"[VERBOSE] get_local_ip: Error al obtener IP local: {e}")
         return f"No disponible ({str(e)})"
 
 
@@ -185,12 +194,17 @@ def build_message(logfile, message, title=None, status=None, show_ip=False, stat
     Builds the message to be sent to Telegram.
     """
 
-    if not message:        
+    if not message:
+        if verbose:
+            print("[VERBOSE] Mensaje vacío, mostrando ayuda y saliendo.")
         parser.print_help()
         exit(1)
 
     # Get hostname and current timestamp
     hostname = socket.gethostname()
+
+    if verbose:
+        print(f"[VERBOSE] Hostname detectado: {hostname}")
 
     if caption:
         host_info = f"Host: {hostname}\n"
@@ -199,6 +213,8 @@ def build_message(logfile, message, title=None, status=None, show_ip=False, stat
 
     if show_ip:
         ip_address = get_local_ip(logfile, verbose)
+        if verbose:
+            print(f"[VERBOSE] IP local: {ip_address}")
         if caption:
             host_info += f"IP: {ip_address}\n"
         else:
@@ -230,11 +246,13 @@ def build_message(logfile, message, title=None, status=None, show_ip=False, stat
 
     if caption:
         text += f"\n{timestamp}"
-        log_message(logfile, f"Built caption: {text}")
+        log_message(logfile, f"Built caption: {text}", verbose)
     else:
         text += f"\n_{timestamp}_"
-        log_message(logfile, f"Built message: {text}")
-    
+        log_message(logfile, f"Built message: {text}", verbose)
+
+    if verbose:
+        print(f"[VERBOSE] Mensaje construido:\n{text}")
     return text
 
 def send_message(logfile, text, chat_id, token, verbose=False):
@@ -250,22 +268,29 @@ def send_message(logfile, text, chat_id, token, verbose=False):
     full_url = f"{url}?{query_string}"
 
     try:
+        if verbose:
+            print(f"[VERBOSE] Enviando mensaje a chat_id={chat_id}")
         with urllib.request.urlopen(full_url) as response:
             data = response.read().decode("utf-8")
             print(f"Mensaje enviado")
-            log_message(logfile, f"Mensaje enviado: {data}")
+            log_message(logfile, f"Mensaje enviado: {data}", verbose)
             return json.loads(data)
     except Exception as e:
         print(f"Error sending message: {e}")
-        log_message(logfile, f"Error sending message: {e}")
+        log_message(logfile, f"Error sending message: {e}", verbose)
+
         return 1
 
 def send_file(logfile, file_path, caption=None, chat_id=None, token=None, verbose=False):
 
     if not os.path.isfile(file_path):
         print(f"Error: el archivo '{file_path}' no existe.")
-        log_message(logfile, f"Error: el archivo '{file_path}' no existe.")
+        log_message(logfile, f"Error: el archivo '{file_path}' no existe.", verbose)
+
         return
+
+    if verbose:
+        print(f"[VERBOSE] Enviando archivo: {file_path} a chat_id={chat_id}")
 
     file_name = os.path.basename(file_path)
     chat_id = str(chat_id)
@@ -311,11 +336,12 @@ def send_file(logfile, file_path, caption=None, chat_id=None, token=None, verbos
     try:
         resp_json = json.loads(resp_data)
         print("Archivo enviado:", resp_json)
-        log_message(logfile, f"Archivo enviado: {resp_json}")
+        log_message(logfile, f"Archivo enviado: {resp_json}", verbose)
         return resp_json
     except json.JSONDecodeError:
         print("Error: respuesta no válida de Telegram:", resp_data)
-        log_message(logfile, f"Error: respuesta no válida de Telegram: {resp_data}")
+        log_message(logfile, f"Error: respuesta no válida de Telegram: {resp_data}", verbose)
+
         return resp_data
 
 
@@ -324,9 +350,13 @@ def main():
     # Parse arguments and load config
     args = parser.parse_args()
     config_file = find_config()
+    if args.verbose:
+        print(f"[VERBOSE] Usando archivo de configuración: {config_file}")
     config = load_config(config_file)
 
     log_file = config["LOG_FILE"] if "LOG_FILE" in config else "tg-send.log"
+    if args.verbose:
+        print(f"[VERBOSE] Log file: {log_file}")
     
     # Override config values with command line arguments if provided
     token = args.token or config["TOKEN"]
