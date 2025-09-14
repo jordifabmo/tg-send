@@ -71,4 +71,4 @@ python3 tg-send.py -i -m "Mostrando la IP del servidor"
 python3 tg-send.py -f "readme.md" -t "Backup" -s "ok" -m "Backup del readme realizado con éxito."
 
 ```
-![]https://raw.githubusercontent.com/jordifabmo/tg-send/refs/heads/assets/example-tg-send.png)
+![](https://raw.githubusercontent.com/jordifabmo/tg-send/refs/heads/assets/example-tg-send.png)
