@@ -35,7 +35,7 @@
 - Encuentra el `chat.id` en la respuesta JSON
 
 ### 3. Modificar el archivo de configuración
-
+- Renombra `tg-send.conf.example` a `tg-send.conf`
 - Añade el token y el chat.id
 
 ## Modo de uso
